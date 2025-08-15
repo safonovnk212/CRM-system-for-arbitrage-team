@@ -2,6 +2,46 @@ import os
 from pathlib import Path
 
 
+# === BEGIN DB FIX (autoload from env) ===
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def _db_from_env():
+    from urllib.parse import urlparse
+    if DATABASE_URL:
+        u = urlparse(DATABASE_URL)
+        name = (u.path or "/").lstrip("/")
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": name or os.getenv("POSTGRES_DB", "postgres"),
+            "USER": u.username or os.getenv("POSTGRES_USER", ""),
+            "PASSWORD": u.password or os.getenv("POSTGRES_PASSWORD", ""),
+            "HOST": u.hostname or os.getenv("DB_HOST", "db"),
+            "PORT": str(u.port or os.getenv("DB_PORT", "5432")),
+            "CONN_MAX_AGE": 60,
+        }
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "postgres"),
+        "USER": os.getenv("POSTGRES_USER", ""),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "db"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "CONN_MAX_AGE": 60,
+    }
+
+DATABASES = {
+    "default": _db_from_env()
+}
+
+KEITARO_S2S_URL = os.getenv("KEITARO_S2S_URL", "http://caddy/keitaro/postback")
+# === END DB FIX ===
+
+
+
+
+
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-_5-*@d6(^*0bjl0%*x1zj1d#a(-fgah_qsnp*yqp7fgs@_m=#n"
@@ -18,11 +58,13 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-ALLOWED_HOSTS = ["127.0.0.1"]
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS','127.0.0.1').split(',')
 
 LOGIN_URL = "/login/"
 
 INSTALLED_APPS = [
+    'django_celery_beat',
+    'django_celery_results',
     "jet.dashboard",
     "jet",
     "django.contrib.admin",
@@ -97,12 +139,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
@@ -148,3 +185,91 @@ JET_THEMES = [
 ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS','').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else []
+
+USE_X_FORWARDED_HOST = True
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO','https')
+
+SECURE_HSTS_SECONDS = 15552000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+
+# ---- SMTP from .env ----
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND","django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST","localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT","25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER","")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD","")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS","False").lower() in ("1","true","yes")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL","False").lower() in ("1","true","yes")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL","no-reply@leadhandler.online")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+
+EMAIL_TIMEOUT = 10
+
+ADMINS = [("Admin","admin@leadhandler.online")]
+MANAGERS = ADMINS
+
+from django.utils.log import DEFAULT_LOGGING
+LOGGING = {
+  "version": 1,
+  "disable_existing_loggers": False,
+  "handlers": {
+    "mail_admins": {
+      "class": "django.utils.log.AdminEmailHandler",
+      "level": "ERROR",
+    },
+  },
+  "loggers": {
+    "django.request": {
+      "handlers": ["mail_admins"],
+      "level": "ERROR",
+      "propagate": True,
+    },
+  },
+}
+
+KEITARO_POSTBACK_SECRET = os.getenv("KEITARO_POSTBACK_SECRET", "")
+
+# URLs, не требующие авторизации (для интеграций)
+LOGIN_EXEMPT_URLS = [r"^keitaro/postback/?$"]
+
+LOGIN_REQUIRED_EXEMPT = [r"^keitaro/postback/?$"]
+
+CELERY_TASK_ALWAYS_EAGER = False
+
+CELERY_TIMEZONE = TIME_ZONE
+
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_TASK_TIME_LIMIT = 60*5
+
+
+# --- BEGIN DB AUTOCONFIG ---
+# БД из DATABASE_URL (если есть) или из POSTGRES_* (docker-compose .env)
+from urllib.parse import urlparse
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    u = urlparse(DATABASE_URL)
+    # допускаем postgresql / postgres схемы
+    NAME = u.path.lstrip("/")
+    USER = u.username or ""
+    PASSWORD = u.password or ""
+    HOST = u.hostname or "localhost"
+    PORT = str(u.port or 5432)
+else:
+    NAME = os.getenv("POSTGRES_DB", "postgres")
+    USER = os.getenv("POSTGRES_USER", "")
+    PASSWORD = os.getenv("POSTGRES_PASSWORD", "")
+    HOST = os.getenv("DB_HOST", "localhost")
+    PORT = os.getenv("DB_PORT", "5432")
+
+# --- END DB AUTOCONFIG ---
+
+KEITARO_S2S_URL = os.getenv("KEITARO_S2S_URL", "http://caddy/keitaro/postback")
