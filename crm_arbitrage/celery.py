@@ -1,10 +1,9 @@
-from celery import Celery
 import os
+from celery import Celery
 
-# Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "crm_arbitrage.settings")
-
 app = Celery("crm_arbitrage")
-
-# Load task modules from all registered Django app configs.
-app.autodiscover_tasks()
+app.conf.worker_redirect_stdouts = False
+app.conf.worker_hijack_root_logger = False
+app.config_from_object("django.conf:settings", namespace="CELERY")
+app.autodiscover_tasks()  # ищет tasks.py в инсталл-приложениях

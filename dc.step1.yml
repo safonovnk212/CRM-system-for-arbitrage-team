@@ -1,0 +1,47 @@
+
+services:
+  web:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - web
+    build: .
+    container_name: crm_web
+    command: ["/app/start.sh"]
+    volumes:
+      - .:/app
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+
+  db:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    image: postgres:15
+    container_name: crm_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  redis:
+    image: redis:7
+    container_name: crm_redis
+    restart: always
+
+volumes:
+  postgres_data:
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80","443:443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile"]
+    depends_on: ["web"]

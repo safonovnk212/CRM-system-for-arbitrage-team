@@ -1,0 +1,26 @@
+services:
+  worker:
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DATABASE_URL=${DATABASE_URL}
+      - DJANGO_SETTINGS_MODULE=crm_arbitrage.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - KEITARO_S2S_URL=${KEITARO_S2S_URL:-http://caddy/keitaro/postback}
+
+  beat:
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DATABASE_URL=${DATABASE_URL}
+      - DJANGO_SETTINGS_MODULE=crm_arbitrage.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - KEITARO_S2S_URL=${KEITARO_S2S_URL:-http://caddy/keitaro/postback}

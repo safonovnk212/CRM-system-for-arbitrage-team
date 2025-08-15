@@ -1,0 +1,48 @@
+services:
+  # Caddy с healthcheck по вашему /keitaro/report
+  caddy:
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/keitaro/report >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  # Celery worker
+  worker:
+    image: crm-system-for-arbitrage-team-web
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=crm_arbitrage.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    command: celery -A crm_arbitrage worker -l info -Q celery,default
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport sys; import redis; r=redis.Redis(host='redis',port=6379,db=0); sys.exit(0 if r.ping() else 1)\nPY"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # Celery beat (планировщик)
+  beat:
+    image: crm-system-for-arbitrage-team-web
+    depends_on:
+      - redis
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=crm_arbitrage.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    command: celery -A crm_arbitrage beat -l info
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport sys; import redis; r=redis.Redis(host='redis',port=6379,db=0); sys.exit(0 if r.ping() else 1)\nPY"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  web:
+    environment:
+      - DJANGO_SETTINGS_MODULE=crm_arbitrage.settings
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
